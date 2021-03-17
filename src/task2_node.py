@@ -10,15 +10,25 @@ from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image
 from tf.transformations import euler_from_quaternion
+
 from libraries.PID import PID
 
+rospy.init_node("task2_solution")
 move = False
 
-goal_x = float(sys.argv[1])
-goal_y = float(sys.argv[2])
+try:
+    goal_x = float(sys.argv[1])
+    goal_y = float(sys.argv[2])
+except IndexError:
+    rospy.logerr("usage: rosrun task2_node.py <goal_x> <goal_y>")
+except ValueError as e:
+    rospy.logfatal(f"{str(e)}")
+    rospy.signal_shutdown("Fatal error")
 
 cmd_msg = Twist()
 cmd_msg.linear.x = 0.5
+start = 0
+end = 0
 
 
 def image_cb(msg: Image):
@@ -32,22 +42,23 @@ def image_cb(msg: Image):
         captured_frame_bgr, cv2.COLOR_BGR2HSV)
 
     # Threshold the Lab image, keep only the green pixels
-    captured_frame_lab_red = cv2.inRange(
+    captured_frame_lab_green = cv2.inRange(
         captured_frame_hsv, np.array([40, 200, 200]), np.array([70, 255, 255]))
 
     # Second blur to reduce more noise, easier circle detection
-    captured_frame_lab_red = cv2.GaussianBlur(
-        captured_frame_lab_red, (5, 5), 2, 2)
+    captured_frame_lab_green = cv2.GaussianBlur(
+        captured_frame_lab_green, (5, 5), 2, 2)
 
     # Use the Hough transform to detect circles in the image
-    circles = cv2.HoughCircles(captured_frame_lab_red, cv2.HOUGH_GRADIENT, 1,
-                               captured_frame_lab_red.shape[0] / 8, param1=20, param2=18, minRadius=5, maxRadius=25)
+    circles = cv2.HoughCircles(captured_frame_lab_green, cv2.HOUGH_GRADIENT, 1,
+                               captured_frame_lab_green.shape[0] / 8, param1=20, param2=18, minRadius=5, maxRadius=25)
 
     # If we have extracted a circle, draw an outline
     # We only need to detect one circle here, since there will only be one reference object
     if circles is not None:
-        global move
+        global move, start
         move = True
+        start = rospy.Time.now()
         image_sub.unregister()
 
 
@@ -58,7 +69,7 @@ def odom_cb(msg: Odometry):
     (_, _, theta) = euler_from_quaternion(
         [rotation.x, rotation.y, rotation.z, rotation.w])
     theta = 2*pi + theta if theta < 0 else theta
-    
+
     if move:
         global cmd_msg
         delta_x = goal_x - x
@@ -71,9 +82,10 @@ def odom_cb(msg: Odometry):
             cmd_msg.linear.x = 0
             cmd_msg.angular.z = 0
             vel_pub.publish(cmd_msg)
-            
+
             rospy.loginfo("Target met")
             rospy.logwarn("Exiting...")
+
             rospy.signal_shutdown("Finished executing")
 
         d_theta = atan2(delta_y, delta_x)
@@ -87,12 +99,11 @@ def odom_cb(msg: Odometry):
 
 if __name__ == "__main__":
     try:
-        rospy.init_node("task2_solution")
         bridge = CvBridge()
 
         angle_pid = PID(Kp=-.05, Ki=0.001, Kd=0, setpoint=0)
-        distance_pid = PID(Kp=-.15, Ki=.0, Kd=0, setpoint=0,
-                           output_limits=(-1, 1))
+        distance_pid = PID(Kp=-.5, Ki=.0, Kd=0, setpoint=0,
+                           output_limits=(-1, 1.2))
 
         image_sub = rospy.Subscriber(
             "/camera/color/image_raw", Image, image_cb)

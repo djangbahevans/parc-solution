@@ -5,13 +5,12 @@
   <arg name="y" default="10.9" />
   <arg name="z" default="0.373" />
   <arg name="yaw" default="0" />
-  
+
   <arg name="goal_x" default="-2.0" />
   <arg name="goal_y" default="10.0" />
 
   <arg name="start_delay" default="7" />
 
-  <!-- Gazebo World file to load -->
   <arg name="world_name" default="$(find parc-robot)worlds/parc_task2.world" />
 
   <include file="$(find parc-robot)/launch/task2.launch">
@@ -19,9 +18,7 @@
     <arg name="y" value="$(arg y)" />
     <arg name="z" value="$(arg z)" />
     <arg name="yaw" value="$(arg yaw)" />
-
     <arg name="start_delay" default="$(arg start_delay)" />
-
     <arg name="world_name" default="$(arg world_name)" />
   </include>
 
