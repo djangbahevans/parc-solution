@@ -7,7 +7,7 @@
   <arg name="yaw" default="0" />
 
   <arg name="goal_x" default="-2.0" />
-  <arg name="goal_y" default="10.0" />
+  <arg name="goal_y" default="10.9" />
 
   <arg name="start_delay" default="7" />
 

@@ -68,16 +68,15 @@ def odom_cb(msg: Odometry):
     rotation = msg.pose.pose.orientation
     (_, _, theta) = euler_from_quaternion(
         [rotation.x, rotation.y, rotation.z, rotation.w])
-    theta = 2*pi + theta if theta < 0 else theta
 
     if move:
         global cmd_msg
         delta_x = goal_x - x
         delta_y = goal_y - y
         distance = sqrt(delta_x**2 + delta_y**2)
-        if distance > 0.9:
+        if distance > 0.5:
             x_vel = distance_pid(distance)
-            cmd_msg.linear.x = 0 if x_vel < 0.09 else x_vel
+            cmd_msg.linear.x = x_vel
         else:
             cmd_msg.linear.x = 0
             cmd_msg.angular.z = 0
@@ -89,10 +88,9 @@ def odom_cb(msg: Odometry):
             rospy.signal_shutdown("Finished executing")
 
         d_theta = atan2(delta_y, delta_x)
-        d_theta = 2*pi + d_theta if d_theta < 0 else d_theta
         angle_pid.setpoint = d_theta
         ang_vel = angle_pid(theta)
-        cmd_msg.angular.z = 0 if abs(ang_vel < 0.1) else ang_vel
+        cmd_msg.angular.z = ang_vel
 
         vel_pub.publish(cmd_msg)
 
@@ -101,7 +99,7 @@ if __name__ == "__main__":
     try:
         bridge = CvBridge()
 
-        angle_pid = PID(Kp=-.05, Ki=0.001, Kd=0, setpoint=0)
+        angle_pid = PID(Kp=.5, Ki=0.001, Kd=0, setpoint=0)
         distance_pid = PID(Kp=-.5, Ki=.0, Kd=0, setpoint=0,
                            output_limits=(-1, 1.2))
 
