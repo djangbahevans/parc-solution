@@ -116,10 +116,12 @@ def image_cb(msg: Image):
         captured_frame_bgr, cv2.COLOR_BGR2HSV)
 
     # Threshold the Lab image, keep only the grey pixels
-    # captured_frame_lab_grey = cv2.inRange(
-    #     captured_frame_hsv, np.array([0, 0, 255]), np.array([40, 10, 128]))
-    captured_frame_lab_grey = cv2.inRange(
-        captured_frame_hsv, np.array([0, 0, 255]), np.array([40, 10, 128]))
+    captured_frame_lab_g = cv2.inRange(
+        captured_frame_hsv, np.array([0, 0, 120]), np.array([40, 10, 128]))
+    captured_frame_lab_w = cv2.inRange(
+        captured_frame_hsv, np.array([0, 0, 245]), np.array([0, 0, 255]))
+    
+    captured_frame_lab_grey = cv2.bitwise_or(captured_frame_lab_g, captured_frame_lab_w)
 
     # Second blur to reduce more noise, easier circle detection
     captured_frame_lab_grey = cv2.GaussianBlur(
@@ -176,7 +178,7 @@ def image_cb(msg: Image):
         cmd_msg.angular.z = 0
 
     # vel_pub.publish(cmd_msg)
-    print(f"VEL: {cmd_msg}")
+    # print(f"VEL: {cmd_msg}")
     cv2.imshow('Output', captured_frame_lab_grey)
     cv2.waitKey(1)
 
