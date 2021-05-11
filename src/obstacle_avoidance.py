@@ -36,6 +36,8 @@ class ObstacleAvoidance(object):
         rospy.spin()
 
     def main(self):
+        """Main loop of robot
+        """
         while not rospy.is_shutdown():
             if not self.obstacle:
                 print("No obstacles")
@@ -49,13 +51,6 @@ class ObstacleAvoidance(object):
 
                 self.go_to_point(obs_pos_global)
 
-                # while not self.at_coordinates(point_robot):
-                #     self.go_to_point(clear_point)
-                #     if rospy.is_shutdown():
-                #         break
-
-                # self.return_to_former_heading()
-
                 while not self.obstacle_behind(true_point_global, offset=1) and not rospy.is_shutdown():
                     self.return_to_former_heading()
                     self.keep_going(type="forward")
@@ -63,6 +58,14 @@ class ObstacleAvoidance(object):
                     self.obstacle = False
 
     def global_to_robot_frame(self, p):
+        """Converts a point in global frame (odom) to robot frame (base_link)
+
+        Args:
+            p (tuple[float, float]): Point in global frame to convert
+
+        Returns:
+            list[float, float]: Converted point in robot frame
+        """
         point = PointStamped()
         point.header.frame_id = "odom"
         point.header.stamp = rospy.Time(0)
@@ -73,6 +76,14 @@ class ObstacleAvoidance(object):
         return [transformed.point.x, transformed.point.y]
 
     def robot_to_global_frame(self, p):
+        """Converts a point from robot frame (base_link) to the global frame (odom)
+
+        Args:
+            p (tuple[float, float]): Point in robot frame to convert
+
+        Returns:
+            list[float, float]: Converted point in global frame
+        """
         point = PointStamped()
         point.header.frame_id = "base_link"
         point.header.stamp = rospy.Time(0)
@@ -84,10 +95,21 @@ class ObstacleAvoidance(object):
         return [transformed.point.x, transformed.point.y]
 
     def stop(self):
+        """Stops the robot
+        """
         cmd_vel = Twist()
         self.vel_cmd.publish(cmd_vel)
 
     def obstacle_behind(self, point, offset=0):
+        """Checks if the robot is in front of an obstacle point
+
+        Args:
+            point (tuple[float, float]): The point to check for
+            offset (int, optional): How far behind the point should be for it to be detected. Defaults to 0.
+
+        Returns:
+            boolean: True if point is behind the robot
+        """
         p = self.global_to_robot_frame(point)
         if p[0] > (0 - offset):
             return False
@@ -96,6 +118,8 @@ class ObstacleAvoidance(object):
             return True
 
     def return_to_former_heading(self):
+        """Returns the robot to the set heading
+        """
         cmd_vel = Twist()
         cmd_vel.linear.x = 0.5
         while abs(self.odom["theta"] - self.current_heading) > 0.01:
@@ -129,10 +153,23 @@ class ObstacleAvoidance(object):
             rate.sleep()
 
     def at_coordinates(self, coordinate):
+        """Checks if robot is at or near a particular coordinate.
+
+        Args:
+            coordinate (tuple[float, float]): The coordinate to check for
+
+        Returns:
+            boolean: True if robot is in a radius of 0.01 near the coordinate
+        """
         # Check if we have desired y
         return True if abs(self.odom["y"] - coordinate[1]) <= 0.01 else False
 
     def determine_pos_of_obstacle(self):
+        """Determines the position of the obstacles and returns the nearest point
+
+        Returns:
+            tuple[list[float, float], list[float, float]]: return[0] represents the nearest obstacle postion. return[1] is ideal offset point for robot to go to
+        """
         obs_points = list(
             filter(lambda x: x[1] >= -0.35 and x[1] <= 0.35, self.obstacles))  # Get points that collides with vehicle
         if self.average_point(*obs_points)[1] > 0:  # Obstacles on the left
@@ -151,17 +188,23 @@ class ObstacleAvoidance(object):
         return ([true_obs_point[0], true_obs_point[1]], [p[0], p[1]])
 
     def check_for_obstacles(self):
+        """Checks for obstacles and sets self.obstacle to true if obstacle is found in the path of the robot.
+        """
         for point in self.obstacles:
             if point[0] > 0:
                 if point[1] >= -0.35 and point[1] <= 0.35:
                     self.obstacle = True
 
     def store_current_heading(self):
-        theta = self.odom["theta"]
+        """Saves current heading for later retrieval
+        """
         self.current_heading = self.odom["theta"]
 
     def keep_going(self, type="lane"):
         """Follows the lane based on camera data
+
+        Args:
+            type (str, optional): The type of motion supported. Options are "lane" and "forward". Defaults to "lane".
         """
         cmd_vel = Twist()
         cmd_vel.linear.x = 0.5
@@ -169,6 +212,11 @@ class ObstacleAvoidance(object):
         self.vel_cmd.publish(cmd_vel)
 
     def odom_cb(self, msg: Odometry):
+        """Handles odometry messages
+
+        Args:
+            msg (Odometry): Odometry data
+        """
         position = msg.pose.pose.position
         rotation = msg.pose.pose.orientation
         (_, _, theta) = euler_from_quaternion(
@@ -178,6 +226,11 @@ class ObstacleAvoidance(object):
         self.odom["theta"] = theta
 
     def scan_cb(self, msg: LaserScan):
+        """Handles LaserScan messages
+
+        Args:
+            msg (LaserScan): LaserScan data
+        """
         angle_range = msg.angle_max - msg.angle_min
         msg_len = len(msg.ranges)
 
@@ -190,6 +243,11 @@ class ObstacleAvoidance(object):
                 self.obstacles.append((x_dist, y_dist))
 
     def average_point(self, *points):
+        """Calculates the average of points
+
+        Returns:
+            tuple[float, float]: (x, y) representing the average of all the points
+        """
         length = len(points)
         sum_x = reduce(lambda total, point: total + point[0], points, 0)
         sum_y = reduce(lambda total, point: total + point[1], points, 0)
