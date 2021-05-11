@@ -1,6 +1,5 @@
 #! /usr/bin/env python
 import sys
-from math import atan2, pi, sqrt
 
 import cv2
 import numpy as np
@@ -73,7 +72,7 @@ def odom_cb(msg: Odometry):
         global cmd_msg
         delta_x = goal_x - x
         delta_y = goal_y - y
-        distance = sqrt(delta_x**2 + delta_y**2)
+        distance = np.sqrt(delta_x**2 + delta_y**2)
         if distance > 0.5:
             x_vel = distance_pid(distance)
             cmd_msg.linear.x = x_vel
@@ -87,7 +86,7 @@ def odom_cb(msg: Odometry):
 
             rospy.signal_shutdown("Finished executing")
 
-        d_theta = atan2(delta_y, delta_x)
+        d_theta = np.arctan2(delta_y, delta_x)
         angle_pid.setpoint = d_theta
         ang_vel = angle_pid(theta)
         cmd_msg.angular.z = ang_vel
