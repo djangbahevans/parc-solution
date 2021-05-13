@@ -1,13 +1,16 @@
 #!/usr/bin/env python
 import sys
+import time
 from functools import reduce
 from math import inf
 
+import cv2
 import numpy as np
 import rospy
+from cv_bridge import CvBridge
 from geometry_msgs.msg import PointStamped, Twist
 from nav_msgs.msg import Odometry
-from sensor_msgs.msg import LaserScan
+from sensor_msgs.msg import Image, LaserScan
 from tf.listener import TransformListener
 from tf.transformations import euler_from_quaternion
 
@@ -24,38 +27,67 @@ class ObstacleAvoidance(object):
             "/scan", LaserScan, callback=self.scan_cb)
         self.odom_sub = rospy.Subscriber(
             "/odom", Odometry, callback=self.odom_cb)
+        self.image_sub = rospy.Subscriber(
+            "/lanes", Image, self.image_cb)
+        self.bridge = CvBridge()
 
         self.vel_cmd = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
         self.obstacle = False
         self.obstacles = []
         self.odom = {}
         self.stored_odom = {}
+        self.lanes = np.zeros((480, 640))
+        self.odom_start = False
+        self.scan_start = False
+        self.img_start = False
+
+        self.graph = {
+            "A": ["B", "C"],
+            "B": ["D", "A"],
+            "C": ["A", "D", "E"],
+            "D": ["B", "C", "F"],
+            "E": ["C", "F", "G"],
+            "F": ["D", "E", "H"],
+            "G": ["E", "H"],
+            "H": ["F", "G"],
+        }
+
+        while (not (self.odom_start and self.scan_start and self.img_start)) and (not rospy.is_shutdown()):
+            continue
 
         self.main()
-
-        rospy.spin()
+        # rospy.spin()
 
     def main(self):
         """Main loop of robot
         """
+        self.store_current_heading()
         while not rospy.is_shutdown():
             if not self.obstacle:
-                print("No obstacles")
-                self.keep_going()
+                self.keep_going(kind="lane")
+                # self.return_to_former_heading(speed=0.5)
                 self.check_for_obstacles()
             else:
-                self.store_current_heading()
-                (true_point, obs_pos_local) = self.determine_pos_of_obstacle()
-                obs_pos_global = self.robot_to_global_frame(obs_pos_local)
-                true_point_global = self.robot_to_global_frame(true_point)
+                print("Obstacle!!!")
+                (true_point_local, obs_offset_local) = self.determine_pos_of_obstacle()
+                obs_offset_global = self.robot_to_global_frame(
+                    obs_offset_local)
+                true_point_global = self.robot_to_global_frame(
+                    true_point_local)
+                print(f"True point local: {true_point_local}")
+                print(f"True point global: {true_point_global}")
 
-                self.go_to_point(obs_pos_global)
+                self.go_to_point(obs_offset_global)
+                self.reset_obstacles()
 
-                while not self.obstacle_behind(true_point_global, offset=1) and not rospy.is_shutdown():
-                    self.return_to_former_heading()
-                    self.keep_going(type="forward")
+                while not self.obstacle_behind(true_point_global, offset=0) and not rospy.is_shutdown():
+                    self.return_to_former_heading(speed=0)
+                    self.keep_going(kind="forward")
                 else:
                     self.obstacle = False
+
+    def reset_obstacles(self):
+        self.obstacles = []
 
     def global_to_robot_frame(self, p):
         """Converts a point in global frame (odom) to robot frame (base_link)
@@ -73,7 +105,7 @@ class ObstacleAvoidance(object):
         point.point.y = p[1]
         point.point.z = 0.0
         transformed = self.listener.transformPoint("base_link", point)
-        return [transformed.point.x, transformed.point.y]
+        return (transformed.point.x, transformed.point.y)
 
     def robot_to_global_frame(self, p):
         """Converts a point from robot frame (base_link) to the global frame (odom)
@@ -92,12 +124,14 @@ class ObstacleAvoidance(object):
         point.point.z = 0.0
         transformed = self.listener.transformPoint("odom", point)
 
-        return [transformed.point.x, transformed.point.y]
+        return (transformed.point.x, transformed.point.y)
 
     def stop(self):
         """Stops the robot
         """
         cmd_vel = Twist()
+        cmd_vel.linear.x = 0
+        cmd_vel.angular.z = 0
         self.vel_cmd.publish(cmd_vel)
 
     def obstacle_behind(self, point, offset=0):
@@ -111,21 +145,20 @@ class ObstacleAvoidance(object):
             boolean: True if point is behind the robot
         """
         p = self.global_to_robot_frame(point)
-        if p[0] > (0 - offset):
+        if p[0] >= (0 - offset):
             return False
         else:
-            print("beyond obstacle")
+            print("Beyond obstacle!")
             return True
 
-    def return_to_former_heading(self):
+    def return_to_former_heading(self, speed=0):
         """Returns the robot to the set heading
         """
         cmd_vel = Twist()
-        cmd_vel.linear.x = 0.5
+        cmd_vel.linear.x = speed
         while abs(self.odom["theta"] - self.current_heading) > 0.01:
-            cmd_vel.angular.z = -0.5 * \
-                (self.odom["theta"] - self.current_heading)
             err = (self.odom["theta"] - self.current_heading)
+            cmd_vel.angular.z = -0.5 * err
             if rospy.is_shutdown():
                 break
             self.vel_cmd.publish(cmd_vel)
@@ -152,7 +185,7 @@ class ObstacleAvoidance(object):
             self.vel_cmd.publish(cmd_vel)
             rate.sleep()
 
-    def at_coordinates(self, coordinate):
+    def at_coordinates(self, coordinate: "tuple[float, float]"):
         """Checks if robot is at or near a particular coordinate.
 
         Args:
@@ -174,7 +207,7 @@ class ObstacleAvoidance(object):
             filter(lambda x: x[1] >= -0.35 and x[1] <= 0.35, self.obstacles))  # Get points that collides with vehicle
         if self.average_point(*obs_points)[1] > 0:  # Obstacles on the left
             # return right most point
-            true_obs_point = np.array(min(self.obstacles, key=lambda x: x[1]))
+            true_obs_point: list[float] = np.array(min(self.obstacles, key=lambda x: x[1]))
             p = np.array(
                 min(self.obstacles, key=lambda x: x[1])) + np.array([-1, -1])
             p = [p[0] - 2, -.4]
@@ -183,15 +216,15 @@ class ObstacleAvoidance(object):
             true_obs_point = np.array(max(self.obstacles, key=lambda x: x[1]))
             p = np.array(
                 max(self.obstacles, key=lambda x: x[1])) + np.array([-1, 1])
-            p = [p[0] - 2, .4]
+            p: list[float] = [p[0] - 2, .4]
 
-        return ([true_obs_point[0], true_obs_point[1]], [p[0], p[1]])
+        return ((true_obs_point[0], true_obs_point[1]), (p[0], p[1]))
 
     def check_for_obstacles(self):
         """Checks for obstacles and sets self.obstacle to true if obstacle is found in the path of the robot.
         """
         for point in self.obstacles:
-            if point[0] > 0:
+            if point[0] > 0 and point[0] < 1.5:
                 if point[1] >= -0.35 and point[1] <= 0.35:
                     self.obstacle = True
 
@@ -200,16 +233,27 @@ class ObstacleAvoidance(object):
         """
         self.current_heading = self.odom["theta"]
 
-    def keep_going(self, type="lane"):
+    def keep_going(self, kind="lane"):
         """Follows the lane based on camera data
 
         Args:
             type (str, optional): The type of motion supported. Options are "lane" and "forward". Defaults to "lane".
         """
         cmd_vel = Twist()
-        cmd_vel.linear.x = 0.5
-        cmd_vel.angular.x = 0
-        self.vel_cmd.publish(cmd_vel)
+        if kind == "forward":
+            cmd_vel.linear.x = 0.5
+            cmd_vel.angular.z = 0
+            self.vel_cmd.publish(cmd_vel)
+        elif kind == "lane":
+            left = self.sliding_window(self.lanes, side="left")
+            right = self.sliding_window(self.lanes, side="right")
+            cmd_vel.linear.x = 0.5
+            err = right - left
+            # print(f"Error: {err}")
+            cmd_vel.angular.z = np.clip(0.001 * err, -.05, .05)
+            self.vel_cmd.publish(cmd_vel)
+            if abs(err) < 1:
+                self.store_current_heading()
 
     def odom_cb(self, msg: Odometry):
         """Handles odometry messages
@@ -224,6 +268,7 @@ class ObstacleAvoidance(object):
         self.odom["x"] = position.x
         self.odom["y"] = position.y
         self.odom["theta"] = theta
+        self.odom_start = True
 
     def scan_cb(self, msg: LaserScan):
         """Handles LaserScan messages
@@ -241,6 +286,34 @@ class ObstacleAvoidance(object):
                 y_dist = dist * np.sin(angle)
                 x_dist = dist * np.cos(angle)
                 self.obstacles.append((x_dist, y_dist))
+        self.scan_start = True
+
+    def image_cb(self, msg: Image):
+        frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding="passthrough")
+        _, lanes = cv2.threshold(
+            frame, 128, 255, cv2.THRESH_BINARY)
+        self.lanes = lanes
+        self.img_start = True
+        # print(frame.shape)
+
+    def sliding_window(self, img, side="left") -> float:
+        if side == "left":
+            section = img[:, 0]
+        else:
+            section = img[:, 639]
+
+        done = False
+        pixels = []
+        for i in reversed(range(480)):
+            if section[i] == 255:
+                pixels.append(i)
+                done = True
+            elif done and section[i] == 0:
+                break
+        average = 479
+        if len(pixels) != 0:
+            average = sum(pixels) / len(pixels)
+        return average
 
     def average_point(self, *points):
         """Calculates the average of points
@@ -252,6 +325,24 @@ class ObstacleAvoidance(object):
         sum_x = reduce(lambda total, point: total + point[0], points, 0)
         sum_y = reduce(lambda total, point: total + point[1], points, 0)
         return (sum_x/length, sum_y/length)
+
+    def find_shortest_path(self, start, end) -> "list[str]":
+        path = [start]
+        if start == end:
+            return path
+        if not start in self.graph:
+            return None
+        shortest = None
+        for node in self.graph[start]:
+            if node not in path:
+                newpath = self.find_shortest_path(self.graph, node, end, path)
+                if newpath:
+                    if not shortest or len(newpath) < len(shortest):
+                        shortest = newpath
+        return shortest
+
+    def node_coordinate(self, node: str) -> "list[float]":
+        pass
 
 
 if __name__ == "__main__":

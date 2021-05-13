@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+
+  <node name="line_detector" pkg="parc-solution" type="line_detector.py" />
+  <node name="obstacle_avoidance" pkg="parc-solution" type="obstacle_avoidance.py" output="screen" />
+</launch>
