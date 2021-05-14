@@ -13,15 +13,14 @@ from sensor_msgs.msg import Image, LaserScan
 from tf.listener import TransformListener
 from tf.transformations import euler_from_quaternion
 
+from Graph import Graph, Vertex
+
 
 class ObstacleAvoidance(object):
     def __init__(self) -> None:
         super().__init__()
 
         rospy.init_node("obstacle_avoidance")
-        self.listener = TransformListener()
-        self.listener.waitForTransform(
-            "odom", "base_link", rospy.Time(), rospy.Duration(20))
         self.scan_sub = rospy.Subscriber(
             "/scan", LaserScan, callback=self.scan_cb)
         self.odom_sub = rospy.Subscriber(
@@ -40,18 +39,14 @@ class ObstacleAvoidance(object):
         self.scan_start = False
         self.img_start = False
 
-        self.graph = {
-            "A": ["B", "C"],
-            "B": ["A", "D"],
-            "C": ["A", "D", "E"],
-            "D": ["B", "C", "F"],
-            "E": ["C", "F", "G"],
-            "F": ["D", "E"],
-            "G": ["E"]
-        }
+        self.graph = self.create_map()
 
         while (not (self.odom_start and self.scan_start and self.img_start)) and (not rospy.is_shutdown()):
             continue
+
+        self.listener = TransformListener()
+        self.listener.waitForTransform(
+            "odom", "base_link", rospy.Time(), rospy.Duration(20))
 
         self.main()
         # rospy.spin()
@@ -341,7 +336,7 @@ class ObstacleAvoidance(object):
         sum_y = reduce(lambda total, point: total + point[1], points, 0)
         return (sum_x/length, sum_y/length)
 
-    def find_shortest_path(self, start: str, end: str) -> "list[str]":
+    def find_shortest_path(self, start: str, end: str, path=[]) -> "list[str]":
         """Finds the shortest path between two nodes on the graph
 
         Args:
@@ -351,21 +346,21 @@ class ObstacleAvoidance(object):
         Returns:
             list[str]: A list of nodes to move through to get to the desired node
         """
-        path = [start]
+        path = path + [start]
         if start == end:
             return path
-        if not start in self.graph:
+        if not start in self.graph.vert_dict:
             return None
         shortest = None
-        for node in self.graph[start]:
-            if node not in path:
-                newpath = self.find_shortest_path(self.graph, node, end, path)
+        for node in self.graph.vert_dict[start].adjacent:
+            if node.id not in path:
+                newpath = self.find_shortest_path(node.id, end, path)
                 if newpath:
                     if not shortest or len(newpath) < len(shortest):
                         shortest = newpath
         return shortest
 
-    def nearest_node(self, p: "tuple[float, float]") -> str:
+    def nearest_node(self, p: "tuple[float, float]") -> Vertex:
         """Takes a point and returns the node closest to that point
 
         Args:
@@ -374,11 +369,12 @@ class ObstacleAvoidance(object):
         Returns:
             str: The node as a string
         """
-        dist = inf
+        prev_dist = inf
         for node in self.graph:
-            if self.distance(p) < dist:
+            dist = self.distance(p, node.coordinates)
+            if dist < prev_dist:
                 nearest_node = node
-                dist = self.distance(p)
+                prev_dist = dist
 
         return nearest_node
 
@@ -394,29 +390,30 @@ class ObstacleAvoidance(object):
         """
         return np.sqrt((p1[0] - p2[0])**2, (p1[1] - p2[1])**2)
 
-    def node_coordinate(self, node: str) -> "tuple[float, float]":
-        """Returns the coordinate of a node
+    def create_map(self) -> Graph:
+        g = Graph()
+        g.add_vertex("A", (-30.5, 10.9))
+        g.add_vertex("B", (-30.5, -10.9))
+        g.add_vertex("C", (-12.2, 10.9))
+        g.add_vertex("D", (-12.2, -10.9))
+        g.add_vertex("E", (-2.0, 10.9))
+        g.add_vertex("F", (-2.0, -10.9))
+        g.add_vertex("G", (7.65, 10.9))
 
-        Args:
-            node (str): The node as specified in self.graph
+        g.add_edge("A", "B", "lane")
+        g.add_edge("A", "C", "lane")
 
-        Returns:
-            tuple[float, float]: A tuple of floats in the format (x, y)
-        """
-        if node == "A":
-            return (-30.5, 10.9)
-        elif node == "B":
-            return (-30.5, -10.9)
-        elif node == "C":
-            return (-12.2, 10.9)
-        elif node == "D":
-            return (-12.2, -10.9)
-        elif node == "E":
-            return (-2.0, 10.9)
-        elif node == "F":
-            return (-2.0, -10.9)
-        elif node == "G":
-            return (7.65, 10.9)
+        g.add_edge("B", "D", "lane")
+
+        g.add_edge("C", "D", "lane")
+        g.add_edge("C", "E", "crossing")
+
+        g.add_edge("D", "F", "crossing")
+
+        g.add_edge("E", "F", "lane")
+        g.add_edge("E", "G", "lane")
+
+        return g
 
 
 if __name__ == "__main__":
