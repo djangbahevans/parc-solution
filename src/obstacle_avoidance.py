@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import sys
-import time
 from functools import reduce
 from math import inf
 
@@ -43,13 +42,12 @@ class ObstacleAvoidance(object):
 
         self.graph = {
             "A": ["B", "C"],
-            "B": ["D", "A"],
+            "B": ["A", "D"],
             "C": ["A", "D", "E"],
             "D": ["B", "C", "F"],
             "E": ["C", "F", "G"],
-            "F": ["D", "E", "H"],
-            "G": ["E", "H"],
-            "H": ["F", "G"],
+            "F": ["D", "E"],
+            "G": ["E"]
         }
 
         while (not (self.odom_start and self.scan_start and self.img_start)) and (not rospy.is_shutdown()):
@@ -85,6 +83,8 @@ class ObstacleAvoidance(object):
                     self.keep_going(kind="forward")
                 else:
                     self.obstacle = False
+
+        self.stop()
 
     def reset_obstacles(self):
         self.obstacles = []
@@ -185,17 +185,24 @@ class ObstacleAvoidance(object):
             self.vel_cmd.publish(cmd_vel)
             rate.sleep()
 
-    def at_coordinates(self, coordinate: "tuple[float, float]"):
+    def at_coordinates(self, coordinate: "tuple[float, float]", scheme="y", radius=0.01) -> bool:
         """Checks if robot is at or near a particular coordinate.
 
         Args:
-            coordinate (tuple[float, float]): The coordinate to check for
+            coordinate (tuple[float, float]): The coordinate to check for.
+            scheme (str, optional): Options are "x", "y" and "both". Used to determine how to calculate distance. "x" and "y" takes distance from global x and y axis respectively only into account, "both" calculates the norm from both axis. Defaults to "y".
+            radius (float, optional): The radius distance from the to assume convergence. Defaults to 0.01.
 
         Returns:
-            boolean: True if robot is in a radius of 0.01 near the coordinate
+            bool: Returns True if robot is within a specified distance from the point.
         """
         # Check if we have desired y
-        return True if abs(self.odom["y"] - coordinate[1]) <= 0.01 else False
+        if scheme == "y":
+            return True if abs(self.odom["y"] - coordinate[1]) <= radius else False
+        elif scheme == "x":
+            return True if abs(self.odom["x"] - coordinate[0]) <= radius else False
+        elif scheme == "both":
+            return True if np.sqrt((self.odom["x"] - coordinate[0])**2 + (self.odom["y"] - coordinate[0])**2) <= radius else False
 
     def determine_pos_of_obstacle(self):
         """Determines the position of the obstacles and returns the nearest point
@@ -207,7 +214,8 @@ class ObstacleAvoidance(object):
             filter(lambda x: x[1] >= -0.35 and x[1] <= 0.35, self.obstacles))  # Get points that collides with vehicle
         if self.average_point(*obs_points)[1] > 0:  # Obstacles on the left
             # return right most point
-            true_obs_point: list[float] = np.array(min(self.obstacles, key=lambda x: x[1]))
+            true_obs_point: list[float] = np.array(
+                min(self.obstacles, key=lambda x: x[1]))
             p = np.array(
                 min(self.obstacles, key=lambda x: x[1])) + np.array([-1, -1])
             p = [p[0] - 2, -.4]
@@ -249,7 +257,6 @@ class ObstacleAvoidance(object):
             right = self.sliding_window(self.lanes, side="right")
             cmd_vel.linear.x = 0.5
             err = right - left
-            # print(f"Error: {err}")
             cmd_vel.angular.z = np.clip(0.001 * err, -.05, .05)
             self.vel_cmd.publish(cmd_vel)
             if abs(err) < 1:
@@ -294,9 +301,17 @@ class ObstacleAvoidance(object):
             frame, 128, 255, cv2.THRESH_BINARY)
         self.lanes = lanes
         self.img_start = True
-        # print(frame.shape)
 
-    def sliding_window(self, img, side="left") -> float:
+    def sliding_window(self, img, side: str = "left") -> float:
+        """Tries to find the average position of a lane line, if none present, returns 479
+
+        Args:
+            img (np.ndarray): A binary image of the lane markings
+            side (str, optional): The side of the image to check for. Defaults to "left".
+
+        Returns:
+            float: The average position of the lane marking on the side of the image.
+        """
         if side == "left":
             section = img[:, 0]
         else:
@@ -315,7 +330,7 @@ class ObstacleAvoidance(object):
             average = sum(pixels) / len(pixels)
         return average
 
-    def average_point(self, *points):
+    def average_point(self, *points) -> "tuple[float, float]":
         """Calculates the average of points
 
         Returns:
@@ -326,7 +341,16 @@ class ObstacleAvoidance(object):
         sum_y = reduce(lambda total, point: total + point[1], points, 0)
         return (sum_x/length, sum_y/length)
 
-    def find_shortest_path(self, start, end) -> "list[str]":
+    def find_shortest_path(self, start: str, end: str) -> "list[str]":
+        """Finds the shortest path between two nodes on the graph
+
+        Args:
+            start (str): The starting position or node
+            end (str): The destination position or node
+
+        Returns:
+            list[str]: A list of nodes to move through to get to the desired node
+        """
         path = [start]
         if start == end:
             return path
@@ -341,8 +365,58 @@ class ObstacleAvoidance(object):
                         shortest = newpath
         return shortest
 
-    def node_coordinate(self, node: str) -> "list[float]":
-        pass
+    def nearest_node(self, p: "tuple[float, float]") -> str:
+        """Takes a point and returns the node closest to that point
+
+        Args:
+            p (tuple[float, float]): The point
+
+        Returns:
+            str: The node as a string
+        """
+        dist = inf
+        for node in self.graph:
+            if self.distance(p) < dist:
+                nearest_node = node
+                dist = self.distance(p)
+
+        return nearest_node
+
+    def distance(self, p1: "tuple[float, float]", p2: "tuple[float, float]") -> float:
+        """Calculates the distance between two points
+
+        Args:
+            p1 (tuple[float, float]): The first point
+            p2 (tuple[float, float]): The second point
+
+        Returns:
+            float: The scalar distance between the two points
+        """
+        return np.sqrt((p1[0] - p2[0])**2, (p1[1] - p2[1])**2)
+
+    def node_coordinate(self, node: str) -> "tuple[float, float]":
+        """Returns the coordinate of a node
+
+        Args:
+            node (str): The node as specified in self.graph
+
+        Returns:
+            tuple[float, float]: A tuple of floats in the format (x, y)
+        """
+        if node == "A":
+            return (-30.5, 10.9)
+        elif node == "B":
+            return (-30.5, -10.9)
+        elif node == "C":
+            return (-12.2, 10.9)
+        elif node == "D":
+            return (-12.2, -10.9)
+        elif node == "E":
+            return (-2.0, 10.9)
+        elif node == "F":
+            return (-2.0, -10.9)
+        elif node == "G":
+            return (7.65, 10.9)
 
 
 if __name__ == "__main__":
