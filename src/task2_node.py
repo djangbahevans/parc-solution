@@ -1,6 +1,5 @@
 #! /usr/bin/env python
 import sys
-from time import time
 
 import cv2
 import numpy as np
@@ -52,16 +51,16 @@ class Traffic:
             captured_frame_bgr, cv2.COLOR_BGR2HSV)
 
         # Threshold the Lab image, keep only the green pixels
-        captured_frame_lab_green = cv2.inRange(
+        captured_frame_green = cv2.inRange(
             captured_frame_hsv, np.array([40, 200, 200]), np.array([70, 255, 255]))
 
         # Second blur to reduce more noise, easier circle detection
-        captured_frame_lab_green = cv2.GaussianBlur(
-            captured_frame_lab_green, (5, 5), 2, 2)
+        captured_frame_green = cv2.GaussianBlur(
+            captured_frame_green, (5, 5), 2, 2)
 
         # Use the Hough transform to detect circles in the image
-        circles = cv2.HoughCircles(captured_frame_lab_green, cv2.HOUGH_GRADIENT, 1,
-                                   captured_frame_lab_green.shape[0] / 8, param1=20, param2=18, minRadius=5, maxRadius=25)
+        circles = cv2.HoughCircles(captured_frame_green, cv2.HOUGH_GRADIENT, 1,
+                                   captured_frame_green.shape[0] / 8, param1=20, param2=18, minRadius=5, maxRadius=25)
 
         # If we have extracted a circle, draw an outline
         # We only need to detect one circle here, since there will only be one reference object

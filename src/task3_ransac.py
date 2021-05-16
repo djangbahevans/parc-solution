@@ -1,7 +1,6 @@
 #! /usr/bin/env python
 import sys
-from math import atan2, cos, inf, pi, sin, sqrt
-from typing import Tuple
+from math import inf, pi
 
 import numpy as np
 import rospy
@@ -37,7 +36,7 @@ class Line:
         Returns:
             float: The angle of the line
         """
-        return atan2(self.end[1, 0] - self.start[1, 0], self.end[0, 0] - self.start[0, 0])
+        return np.atan2(self.end[1, 0] - self.start[1, 0], self.end[0, 0] - self.start[0, 0])
 
     def connected(self, line) -> bool:
         """Checks if two lines share a common point
@@ -101,7 +100,7 @@ class Line:
         Returns:
             float: The length of the line
         """
-        return sqrt((self.start[0, 0] - self.end[0, 0])**2 + (self.start[1, 0] - self.end[1, 0])**2)
+        return np.sqrt((self.start[0, 0] - self.end[0, 0])**2 + (self.start[1, 0] - self.end[1, 0])**2)
 
     def merge(self, line):
         point = self.intersection(line)
@@ -124,8 +123,8 @@ class Line:
             [[end_local[0]], [end_local[1] + offset_distance]])
 
         tf_matrix = np.matrix([
-            [cos(theta), sin(-theta)],
-            [sin(theta), cos(theta)]
+            [np.cos(theta), np.sin(-theta)],
+            [np.sin(theta), np.cos(theta)]
         ])
 
         start_global = tf_matrix * offset_start_local
@@ -206,7 +205,7 @@ class Polyline:
         centroid = self.centroid()
 
         def angle(p, c):
-            ang = atan2(p[1]-c[1], p[0]-c[0])
+            ang = np.atan2(p[1]-c[1], p[0]-c[0])
             ang = (ang if ang > 0 else (2*pi + ang)) * 360 / (2*pi)
             return ang
 

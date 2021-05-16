@@ -1,7 +1,4 @@
 #!/usr/bin/env python
-
-import sys
-
 import actionlib
 import rospy
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
@@ -20,7 +17,6 @@ except ValueError as e:
 
 
 def movebase_client():
-
     client = actionlib.SimpleActionClient('move_base', MoveBaseAction)
     client.wait_for_server()
 
