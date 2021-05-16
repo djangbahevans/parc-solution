@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 import sys
+from time import time
 
 import cv2
 import numpy as np
@@ -9,8 +10,6 @@ from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image
 from tf.transformations import euler_from_quaternion
-
-from libraries.PID import PID
 
 rospy.init_node("task2_solution")
 move = False
@@ -30,82 +29,91 @@ start = 0
 end = 0
 
 
-def image_cb(msg: Image):
-    # Capture frame-by-frame
-    captured_frame = bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
+class Traffic:
+    def __init__(self) -> None:
+        self.bridge = CvBridge()
 
-    # First blur to reduce noise prior to color space conversion
-    captured_frame_bgr = cv2.medianBlur(captured_frame, 3)
-    # Convert to Lab color space, we only need to check one channel (a-channel) for red here
-    captured_frame_hsv = cv2.cvtColor(
-        captured_frame_bgr, cv2.COLOR_BGR2HSV)
+        self.image_sub = rospy.Subscriber(
+            "/camera/color/image_raw", Image, self.image_cb)
+        self.odom_sub = rospy.Subscriber("/odom", Odometry, self.odom_cb)
+        self.vel_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
 
-    # Threshold the Lab image, keep only the green pixels
-    captured_frame_lab_green = cv2.inRange(
-        captured_frame_hsv, np.array([40, 200, 200]), np.array([70, 255, 255]))
+        self.odom = (0, 0, 0)
 
-    # Second blur to reduce more noise, easier circle detection
-    captured_frame_lab_green = cv2.GaussianBlur(
-        captured_frame_lab_green, (5, 5), 2, 2)
+    def image_cb(self, msg: Image):
+        # Capture frame-by-frame
+        captured_frame = self.bridge.imgmsg_to_cv2(
+            msg, desired_encoding="bgr8")
 
-    # Use the Hough transform to detect circles in the image
-    circles = cv2.HoughCircles(captured_frame_lab_green, cv2.HOUGH_GRADIENT, 1,
-                               captured_frame_lab_green.shape[0] / 8, param1=20, param2=18, minRadius=5, maxRadius=25)
+        # First blur to reduce noise prior to color space conversion
+        captured_frame_bgr = cv2.medianBlur(captured_frame, 3)
+        # Convert to Lab color space, we only need to check one channel (a-channel) for red here
+        captured_frame_hsv = cv2.cvtColor(
+            captured_frame_bgr, cv2.COLOR_BGR2HSV)
 
-    # If we have extracted a circle, draw an outline
-    # We only need to detect one circle here, since there will only be one reference object
-    if circles is not None:
-        global move, start
-        move = True
-        start = rospy.Time.now()
-        image_sub.unregister()
+        # Threshold the Lab image, keep only the green pixels
+        captured_frame_lab_green = cv2.inRange(
+            captured_frame_hsv, np.array([40, 200, 200]), np.array([70, 255, 255]))
 
+        # Second blur to reduce more noise, easier circle detection
+        captured_frame_lab_green = cv2.GaussianBlur(
+            captured_frame_lab_green, (5, 5), 2, 2)
 
-def odom_cb(msg: Odometry):
-    x = msg.pose.pose.position.x
-    y = msg.pose.pose.position.y
-    rotation = msg.pose.pose.orientation
-    (_, _, theta) = euler_from_quaternion(
-        [rotation.x, rotation.y, rotation.z, rotation.w])
+        # Use the Hough transform to detect circles in the image
+        circles = cv2.HoughCircles(captured_frame_lab_green, cv2.HOUGH_GRADIENT, 1,
+                                   captured_frame_lab_green.shape[0] / 8, param1=20, param2=18, minRadius=5, maxRadius=25)
 
-    if move:
-        global cmd_msg
-        delta_x = goal_x - x
-        delta_y = goal_y - y
-        distance = np.sqrt(delta_x**2 + delta_y**2)
-        if distance > 0.5:
-            x_vel = distance_pid(distance)
-            cmd_msg.linear.x = x_vel
-        else:
-            cmd_msg.linear.x = 0
-            cmd_msg.angular.z = 0
-            vel_pub.publish(cmd_msg)
+        # If we have extracted a circle, draw an outline
+        # We only need to detect one circle here, since there will only be one reference object
+        if circles is not None:
+            self.image_sub.unregister()
+            self.go_to_point((goal_x, goal_y), max_speed=1)
 
-            rospy.loginfo("Target met")
-            rospy.logwarn("Exiting...")
+    def odom_cb(self, msg: Odometry):
+        x = msg.pose.pose.position.x
+        y = msg.pose.pose.position.y
+        rotation = msg.pose.pose.orientation
+        (_, _, theta) = euler_from_quaternion(
+            [rotation.x, rotation.y, rotation.z, rotation.w])
 
-            rospy.signal_shutdown("Finished executing")
+        self.odom = (x, y, theta)
 
-        d_theta = np.arctan2(delta_y, delta_x)
-        angle_pid.setpoint = d_theta
-        ang_vel = angle_pid(theta)
-        cmd_msg.angular.z = ang_vel
+    def go_to_point(self, point: "tuple[float, float]", max_speed: float = 1, distance: float = 0.5):
+        """Navigates the robot straight to a point. Should only be used for short distances where there are no obstacles.
 
-        vel_pub.publish(cmd_msg)
+        Args:
+            point (tuple[float, float]): The point to navigate to.
+            distance (float, optional): The distance to assume destination reached. Defaults to 0.5.
+        """
+        cmd_vel = Twist()
+        rate = rospy.Rate(100)
+
+        while not rospy.is_shutdown():
+            del_x = point[0] - self.odom[0]
+            del_y = point[1] - self.odom[1]
+            norm = np.sqrt(del_x**2 + del_y**2)
+            d_theta = np.arctan2(del_y, del_x)
+
+            if norm < distance:
+                self.stop()
+                break
+            cmd_vel.linear.x = (.5 * norm) if (.5 * norm) < max_speed else max_speed
+            cmd_vel.angular.z = .5 * (d_theta - self.odom[2])
+            self.vel_pub.publish(cmd_vel)
+            rate.sleep()
+
+    def stop(self):
+        """Stops the robot
+        """
+        cmd_vel = Twist()
+        cmd_vel.linear.x = 0
+        cmd_vel.angular.z = 0
+        self.vel_pub.publish(cmd_vel)
 
 
 if __name__ == "__main__":
     try:
-        bridge = CvBridge()
-
-        angle_pid = PID(Kp=.5, Ki=0.001, Kd=0, setpoint=0)
-        distance_pid = PID(Kp=-.5, Ki=.0, Kd=0, setpoint=0,
-                           output_limits=(-1, 1.2))
-
-        image_sub = rospy.Subscriber(
-            "/camera/color/image_raw", Image, image_cb)
-        odom_sub = rospy.Subscriber("/odom", Odometry, odom_cb)
-        vel_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
+        Traffic()
 
         rospy.spin()
     except rospy.ROSInterruptException:
