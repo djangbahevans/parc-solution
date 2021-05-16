@@ -63,12 +63,12 @@ class ObstacleAvoidance(object):
         """Main loop of robot
         """
         first_point = self.find_first_point()
-        rospy.loginfo(f"Moving to point {first_point.get_id()}")
-        self.go_to_intersection(first_point.coordinates)
         (goal_node, _) = self.nearest_node((goal_x, goal_y))
         path = self.find_shortest_path(
             first_point.get_id(), goal_node.get_id())
         rospy.loginfo(f"Using path {path}")
+        rospy.loginfo(f"Moving to {first_point.get_id()}")
+        self.go_to_intersection(first_point.coordinates)
 
         for i in range(1, len(path)):
             p = path[i]
@@ -257,16 +257,16 @@ class ObstacleAvoidance(object):
         """
         obs_points = list(
             filter(lambda x: x[1] >= -0.35 and x[1] <= 0.35, self.obstacles))  # Get points that collides with vehicle
+        print(len(self.obstacles))
+        # rospy.loginfo_once(f"Obstacle points: {self.obstacles}")
         if self.average_point(*obs_points)[1] > 0:  # Obstacles on the left
             # return right most point
-            true_obs_point: list[float] = np.array(
-                min(self.obstacles, key=lambda x: x[1]))
-            obs_offset = [true_obs_point[0], -.4]
+            true_obs_point: list[float] = min(self.obstacles, key=lambda x: x[1])
+            obs_offset = [true_obs_point[0], true_obs_point[1] - .75]
         else:  # Obstacles on the right
             # return left most point
-            true_obs_point = np.array(
-                max(self.obstacles, key=lambda x: x[1]))
-            obs_offset: list[float] = [true_obs_point[0], .4]
+            true_obs_point = max(self.obstacles, key=lambda x: x[1])
+            obs_offset: list[float] = [true_obs_point[0], true_obs_point[1] + .75]
 
         return ((true_obs_point[0], true_obs_point[1]), (obs_offset[0], obs_offset[1]))
 
@@ -329,6 +329,7 @@ class ObstacleAvoidance(object):
         angle_range = msg.angle_max - msg.angle_min
         msg_len = len(msg.ranges)
 
+        self.obstacles = []
         for i in range(len(msg.ranges)):
             angle = i * angle_range/msg_len - msg.angle_max
             dist = msg.ranges[i]
