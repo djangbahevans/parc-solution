@@ -17,6 +17,9 @@ class Vertex:
     def __str__(self):
         return str(self.id) + ' adjacent: ' + str([x.id for x in self.adjacent])
 
+    def __repr__(self) -> str:
+        return self.__str__()
+
     def add_neighbor(self, neighbor: str, how: str = "lane", weight: float = 0):
         """Adds a neighbor with weight to the the node
 
