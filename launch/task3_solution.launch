@@ -1,5 +1,8 @@
 <?xml version="1.0"?>
 <launch>
+  <arg name="goal_x" default="7.225" />
+  <arg name="goal_y" default="-6.785" />
+  <arg name="goal_theta" default="-1.57079632679" />
 
   <arg name="no_static_map" default="true"/>
 
@@ -40,6 +43,6 @@
     <remap from="points" to="/camera/depth/points"/>
   </node>
 
-  <node name="task3" pkg="parc-solution" type="task3_move_base.py" args="" output="screen" />
+  <node name="task3" pkg="parc-solution" type="task3_move_base.py" args="$(arg goal_x) $(arg goal_y) $(arg theta)" output="screen" />
 
 </launch>

@@ -9,11 +9,9 @@ from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion
 
 try:
-    # goal_x = float(sys.argv[1])
-    # goal_y = float(sys.argv[2])
-    goal_x = 7.225
-    goal_y = -6.785
-    goal_theta = -1.57079632679
+    goal_x = float(sys.argv[1])
+    goal_y = float(sys.argv[2])
+    goal_theta = float(sys.argv[3])
 except IndexError:
     rospy.logerr("usage: rosrun task2_node.py <goal_x> <goal_y>")
     sys.exit(0)
