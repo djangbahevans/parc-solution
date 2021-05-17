@@ -49,7 +49,7 @@ To run the solution, run the following command (goal_x and goal_y are the coordi
 
 The navigation stack is used to run the robot to the unmapped cluttered space.
 
-To run the solution, run the following command (goal_x, goal_y and goal_theta are the coordinate goal, assumed to be -2.0 and 10.9 respectively if not provided): <br>
+To run the solution, run the following command (goal_x, goal_y and goal_theta are the coordinate goal, assumed to be 7.225, -6.785 and -1.57079632679 respectively if not provided): <br>
 ` roslaunch parc-solution task3_solution.launch goal_x:=<goal_x> goal_y:=<goal_y> goal_theta:=<goal_theta> `
 
 ## Challenges Faced

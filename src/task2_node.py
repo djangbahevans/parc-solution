@@ -10,9 +10,6 @@ from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image
 from tf.transformations import euler_from_quaternion
 
-rospy.init_node("task2_solution")
-move = False
-
 try:
     goal_x = float(sys.argv[1])
     goal_y = float(sys.argv[2])
@@ -30,6 +27,8 @@ end = 0
 
 class Traffic:
     def __init__(self) -> None:
+        rospy.init_node("task2_solution")
+
         self.bridge = CvBridge()
 
         self.image_sub = rospy.Subscriber(
@@ -96,7 +95,8 @@ class Traffic:
             if norm < distance:
                 self.stop()
                 break
-            cmd_vel.linear.x = (.5 * norm) if (.5 * norm) < max_speed else max_speed
+            cmd_vel.linear.x = (.5 * norm) if (.5 *
+                                               norm) < max_speed else max_speed
             cmd_vel.angular.z = .5 * (d_theta - self.odom[2])
             self.vel_pub.publish(cmd_vel)
             rate.sleep()
