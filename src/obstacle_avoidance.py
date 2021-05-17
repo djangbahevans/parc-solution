@@ -80,7 +80,7 @@ class ObstacleAvoidance(object):
             rospy.loginfo(f"Moving from {path[i-1]} to {p}")
             self.go_to_intersection(v.coordinates)
 
-        rospy.loginfo("At destination")
+        rospy.logwarn("At destination")
 
     def go_to_intersection(self, p: "tuple[float, float]"):
         """Knows how to navigate to any intersection at point p
@@ -98,7 +98,9 @@ class ObstacleAvoidance(object):
                 (true_obs, obs_offset_local) = self.determine_pos_of_obstacle()
                 obs_offset_global = self.robot_to_global_frame(
                     obs_offset_local)
-                rospy.logwarn(f"Obstacle at {obs_offset_global}")
+                true_obs_global = self.robot_to_global_frame(
+                    true_obs)
+                rospy.logwarn(f"Obstacle at {true_obs_global}")
 
                 self.go_to_point(obs_offset_global)
                 self.reset_obstacles()
@@ -255,17 +257,16 @@ class ObstacleAvoidance(object):
         Returns:
             tuple[list[float, float], list[float, float]]: return[0] represents the nearest obstacle postion. return[1] is ideal offset point for robot to go to
         """
-        obs_points = list(
-            filter(lambda x: x[1] >= -0.35 and x[1] <= 0.35, self.obstacles))  # Get points that collides with vehicle
-        print(len(self.obstacles))
-        # rospy.loginfo_once(f"Obstacle points: {self.obstacles}")
+        obs_points: "list[tuple[float, float]]" = list(
+            filter(lambda p: p[1] >= -0.35 and p[1] <= 0.35, self.obstacles))  # Get points that collides with vehicle
+
         if self.average_point(*obs_points)[1] > 0:  # Obstacles on the left
             # return right most point
-            true_obs_point: list[float] = min(self.obstacles, key=lambda x: x[1])
+            true_obs_point: list[float] = min(obs_points, key=lambda x: x[1])
             obs_offset = [true_obs_point[0], true_obs_point[1] - .75]
         else:  # Obstacles on the right
             # return left most point
-            true_obs_point = max(self.obstacles, key=lambda x: x[1])
+            true_obs_point = max(obs_points, key=lambda x: x[1])
             obs_offset: list[float] = [true_obs_point[0], true_obs_point[1] + .75]
 
         return ((true_obs_point[0], true_obs_point[1]), (obs_offset[0], obs_offset[1]))
