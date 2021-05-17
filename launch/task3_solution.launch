@@ -7,12 +7,7 @@
   <arg name="base_local_planner" default="dwa_local_planner/DWAPlannerROS"/>
   <!-- <arg name="base_local_planner" default="base_local_planner/TrajectoryPlannerROS"/> -->
 
-  <node name="depth_to_laser" pkg="depthimage_to_laserscan" type="depthimage_to_laserscan">
-    <remap from="/image" to="/camera/depth/image_raw"/>
-    <remap from="/scan" to="/scan1"/>
-  </node>
-
-  <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+  <node pkg="move_base" type="move_base" respawn="false" name="move_base" >
 
     <param name="base_global_planner" value="$(arg base_global_planner)"/>
     <param name="base_local_planner" value="$(arg base_local_planner)"/>  
@@ -24,8 +19,8 @@
 
     <!-- local costmap, needs size -->
     <rosparam file="$(find parc-solution)/config/costmap_local.yaml" command="load" ns="local_costmap" />
-    <param name="local_costmap/width" value="10.0"/>
-    <param name="local_costmap/height" value="10.0"/>
+    <param name="local_costmap/width" value="3.0"/>
+    <param name="local_costmap/height" value="3.0"/>
 
     <!-- static global costmap, static map provides size -->
     <rosparam file="$(find parc-solution)/config/costmap_global_static.yaml" command="load" ns="global_costmap" unless="$(arg no_static_map)"/>
@@ -36,30 +31,6 @@
     <param name="global_costmap/height" value="100.0" if="$(arg no_static_map)"/>
   </node>
 
-  <node name="line_extractor" pkg="laser_line_extraction" type="line_extraction_node">
-    <param name="~frequency" value="30.0" />
-    <param name="~frame_id" value="camera_link" />
-    <param name="~scan_topic" value="scan1" />
-    <param name="~publish_markers" value="true" />
-    <param name="~bearing_std_dev" value="1e-5" />
-    <param name="~range_std_dev" value="0.012" />
-    <param name="~least_sq_angle_thresh" value="0.0001" />
-    <param name="~least_sq_radius_thresh" value="0.0001" />
-    <param name="~max_line_gap" value="0.5" />
-    <param name="~min_line_length" value="0.7" />
-    <param name="~min_range" value="0.5" />
-    <param name="~max_range" value="250.0" />
-    <param name="~min_split_dist" value="0.04" />
-    <param name="~outlier_dist" value="0.06" />
-    <param name="~min_line_points" value="10" />
-  </node>
-
-
-  <!-- <node name="image_to_points" pkg="depth_image_proc" type="point_cloud_xyz">
-    <remap from="camera_info" to="camera/depth/camera_info" />
-    <remap from="camera_rect" to="camera/depth/image_raw" />
-  </node> -->
-
   <node pkg="nodelet" type="nodelet" name="nodelet_manager" args="manager" />
 
   <node pkg="nodelet" type="nodelet" name="nodelet1"
@@ -68,5 +39,7 @@
     <remap from="image_rect" to="/camera/depth/image_raw"/>
     <remap from="points" to="/camera/depth/points"/>
   </node>
+
+  <node name="task3" pkg="parc-solution" type="task3_move_base.py" args="" output="screen" />
 
 </launch>
