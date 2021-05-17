@@ -2,7 +2,7 @@
 
 ## Introduction
 
-In this section, you should give an overview of the competition task, briefly describe your understanding of delivery robotics and how relevant it is in an African context (*This should be only 4-5 sentences*)
+The 2021 PARC Engineers League challenges the various teams to build a delivery robot that can pick up a package, and deliver it to a destination autonomously, while obeying traffic rules and avoid collision with nearby objects. Deliverty robots are seeing more use world wide, especially during the coronavirus pandemic, where they could deliver products autonomously. Delivery robots could be useful in rural cocoa farming communities, where they can autonomously deliver plucked cocoa pods to the processing points, removing the need to use people, mostly children, for this purposes.
 
 **Team Country:** Ghana
 
@@ -47,10 +47,10 @@ To run the solution, run the following command (goal_x and goal_y are the coordi
 
 ## Task 3
 
-Include a brief description of your approach to the solution (*This should be only 3-5 sentences*)
+The navigation stack is used to run the robot to the unmapped cluttered space.
 
-Write the command required to run your solution. Should be in this format: <br>
-` roslaunch parc-solution task3_solution.launch `
+To run the solution, run the following command (goal_x and goal_y are the coordinate goal, assumed to be -2.0 and 10.9 respectively if not provided): <br>
+` roslaunch parc-solution task3_solution.launch goal_x:=<goal_x> goal_y:=<goal_y> `
 
 ## Challenges Faced
 
