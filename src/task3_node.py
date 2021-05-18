@@ -17,7 +17,7 @@ except IndexError:
     rospy.logerr("usage: rosrun task2_node.py <goal_x> <goal_y>")
     sys.exit(0)
 except ValueError as e:
-    rospy.logfatal(f"{str(e)}")
+    rospy.logfatal(str(e))
     rospy.signal_shutdown("Fatal error: Could not parse goal")
     sys.exit(0)
 
@@ -52,7 +52,7 @@ class Task3:
         self.turn_to_heading(goal_theta)
         self.stop()
 
-    def feedback_cb(self, msg: MoveBaseFeedback):
+    def feedback_cb(self, msg):
         position_x = msg.base_position.pose.position.x
         position_y = msg.base_position.pose.position.y
         print(self.distance((position_x, position_y), (goal_x, goal_y)))
@@ -60,10 +60,10 @@ class Task3:
             self.client.cancel_all_goals()
             rospy.logerr("Taking manual control")
 
-    def distance(self, p1: "tuple[float, float]", p2: "tuple[float, float]"):
+    def distance(self, p1, p2):
         return np.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
 
-    def go_to_point(self, point: "tuple[float, float]", max_speed: float = 1, distance: float = 0.1):
+    def go_to_point(self, point, max_speed = 1, distance = 0.1):
         """Navigates the robot straight to a point. Should only be used for short distances where there are no obstacles.
 
         Args:
@@ -88,7 +88,7 @@ class Task3:
             self.vel_cmd.publish(cmd_vel)
             rate.sleep()
 
-    def turn_to_heading(self, heading: float):
+    def turn_to_heading(self, heading):
         """Returns the robot to the set heading
 
         Args:
@@ -112,7 +112,7 @@ class Task3:
         cmd_vel.angular.z = 0
         self.vel_cmd.publish(cmd_vel)
 
-    def odom_cb(self, msg: Odometry):
+    def odom_cb(self, msg):
         """Handles odometry messages
 
         Args:

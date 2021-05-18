@@ -16,7 +16,7 @@ try:
 except IndexError:
     rospy.logerr("usage: rosrun task2_node.py <goal_x> <goal_y>")
 except ValueError as e:
-    rospy.logfatal(f"{str(e)}")
+    rospy.logfatal(str(e))
     rospy.signal_shutdown("Fatal error")
 
 cmd_msg = Twist()
@@ -38,7 +38,7 @@ class Traffic:
 
         self.odom = (0, 0, 0)
 
-    def image_cb(self, msg: Image):
+    def image_cb(self, msg):
         # Capture frame-by-frame
         captured_frame = self.bridge.imgmsg_to_cv2(
             msg, desired_encoding="bgr8")
@@ -67,7 +67,7 @@ class Traffic:
             self.image_sub.unregister()
             self.go_to_point((goal_x, goal_y), max_speed=1)
 
-    def odom_cb(self, msg: Odometry):
+    def odom_cb(self, msg):
         x = msg.pose.pose.position.x
         y = msg.pose.pose.position.y
         rotation = msg.pose.pose.orientation
@@ -76,7 +76,7 @@ class Traffic:
 
         self.odom = (x, y, theta)
 
-    def go_to_point(self, point: "tuple[float, float]", max_speed: float = 1, distance: float = 0.5):
+    def go_to_point(self, point, max_speed = 1, distance = 0.5):
         """Navigates the robot straight to a point. Should only be used for short distances where there are no obstacles.
 
         Args:

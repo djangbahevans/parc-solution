@@ -9,14 +9,14 @@ from sensor_msgs.msg import Image
 
 
 class LaneDetector(object):
-    def __init__(self) -> None:
+    def __init__(self):
         rospy.init_node("lane_detector")
         self.bridge = CvBridge()
         rospy.Subscriber("/camera/color/image_raw", Image, self.image_cb)
         self.pub = rospy.Publisher("/lanes", Image, queue_size=10)
         rospy.spin()
 
-    def image_cb(self, msg: Image):
+    def image_cb(self, msg):
         frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
         # First blur to reduce noise prior to color space conversion
         captured_frame_bgr = cv2.medianBlur(frame, 3)

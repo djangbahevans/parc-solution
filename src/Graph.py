@@ -3,7 +3,7 @@ import numpy as np
 
 
 class Vertex:
-    def __init__(self, node: str, coordinates: "tuple[float, float]"):
+    def __init__(self, node, coordinates):
         """The initial method of the class
 
         Args:
@@ -11,16 +11,16 @@ class Vertex:
             coordinate (tuple[float, float]): The position coordinates of the node.
         """
         self.id = node
-        self.adjacent: dict[Vertex, tuple[float, str]] = {}
+        self.adjacent = {}
         self.coordinates = coordinates
 
     def __str__(self):
         return str(self.id) + ' adjacent: ' + str([x.id for x in self.adjacent])
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return self.__str__()
 
-    def add_neighbor(self, neighbor: str, how: str = "lane", weight: float = 0):
+    def add_neighbor(self, neighbor, how = "lane", weight = 0):
         """Adds a neighbor with weight to the the node
 
         Args:
@@ -42,13 +42,13 @@ class Vertex:
 
 class Graph:
     def __init__(self):
-        self.vert_dict: dict[str, Vertex] = {}
+        self.vert_dict = {}
         self.num_vertices = 0
 
     def __iter__(self):
         return iter(self.vert_dict.values())
 
-    def add_vertex(self, node: str, coordinates: "tuple[float, float]"):
+    def add_vertex(self, node, coordinates):
         self.num_vertices = self.num_vertices + 1
 
         new_vertex = Vertex(node, coordinates)
@@ -56,13 +56,13 @@ class Graph:
         self.vert_dict[node] = new_vertex
         return new_vertex
 
-    def get_vertex(self, n: str):
+    def get_vertex(self, n):
         if n in self.vert_dict:
             return self.vert_dict[n]
         else:
             return None
 
-    def add_edge(self, frm: str, to: str, how: str):
+    def add_edge(self, frm, to, how):
         if frm not in self.vert_dict:
             self.add_vertex(frm)
         if to not in self.vert_dict:
@@ -74,7 +74,7 @@ class Graph:
         frm_coords = frm_node.coordinates
         to_coords = to_node.coordinates
 
-        distance: float = np.sqrt(
+        distance = np.sqrt(
             (frm_coords[0] - to_coords[0])**2 + (frm_coords[1] - to_coords[1])**2)
 
         frm_node.add_neighbor(self.vert_dict[to], how, distance)
