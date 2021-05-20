@@ -26,7 +26,7 @@ end = 0
 
 
 class Traffic:
-    def __init__(self) -> None:
+    def __init__(self):
         rospy.init_node("task2_solution")
 
         self.bridge = CvBridge()
