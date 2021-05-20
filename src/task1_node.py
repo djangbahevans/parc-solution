@@ -221,7 +221,7 @@ class ObstacleAvoidance:
             norm = np.sqrt(del_x**2 + del_y**2)
             d_theta = np.arctan2(del_y, del_x)
 
-            cmd_vel.linear.x = .5 * norm if .5 * norm < 0.6 else 0.5
+            cmd_vel.linear.x = 1 * norm if 1 * norm < 1 else 1
             cmd_vel.angular.z = .5 * (d_theta - self.odom["theta"])
             if norm < distance:
                 self.stop()
