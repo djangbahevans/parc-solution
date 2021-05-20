@@ -63,8 +63,8 @@ class ObstacleAvoidance:
         (goal_node, _) = self.nearest_node((goal_x, goal_y))
         path = self.find_shortest_path(
             first_point.get_id(), goal_node.get_id())
-        rospy.loginfo("Using path" + path)
-        rospy.loginfo("Moving to " + first_point.get_id())
+        rospy.loginfo("Using path {0}".format(path))
+        rospy.loginfo("Moving to {0}".format(first_point.get_id()))
         self.go_to_intersection(first_point.coordinates)
 
         for i in range(1, len(path)):
@@ -74,7 +74,7 @@ class ObstacleAvoidance:
                 (v.coordinates[1] - self.odom["y"]), (v.coordinates[0] - self.odom["x"]))
             self.turn_to_heading(h)
             self.stop()
-            rospy.loginfo("Moving from " + path[i-1] + " to p")
+            rospy.loginfo("Moving from {0} to {1}".format(path[i-1], p))
             self.go_to_intersection(v.coordinates)
 
         rospy.logwarn("At destination")
@@ -97,7 +97,7 @@ class ObstacleAvoidance:
                     obs_offset_local)
                 true_obs_global = self.robot_to_global_frame(
                     true_obs)
-                rospy.logwarn("Obstacle at " + true_obs_global)
+                rospy.logwarn("Obstacle at {0}".format(true_obs_global))
 
                 self.go_to_point(obs_offset_global)
                 self.reset_obstacles()
