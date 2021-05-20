@@ -44,6 +44,7 @@ class ObstacleAvoidance:
         self.odom_start = False
         self.scan_start = False
         self.img_start = False
+        self.final = False
 
         self.graph = self.create_map()
 
@@ -68,6 +69,8 @@ class ObstacleAvoidance:
         self.go_to_intersection(first_point.coordinates)
 
         for i in range(1, len(path)):
+            if i == len(path) - 1:
+                self.final = True
             p = path[i]
             v = self.graph.get_vertex(p)
             h = np.arctan2(
@@ -86,7 +89,8 @@ class ObstacleAvoidance:
             p (tuple[float, float]): Coordinates of the intersection
         """
         self.store_current_heading()
-        while (not rospy.is_shutdown()) and (not self.at_coordinates(p, radius=2, scheme="both")):
+        d_rad = 3 if self.final else 2
+        while (not rospy.is_shutdown()) and (not self.at_coordinates(p, radius=d_rad, scheme="both")):
             if not self.obstacle:
                 self.keep_going(kind="lane", speed=1)
                 self.check_for_obstacles()
