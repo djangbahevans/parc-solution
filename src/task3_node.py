@@ -23,7 +23,7 @@ except ValueError as e:
 
 
 class Task3:
-    def __init__(self) -> None:
+    def __init__(self):
         rospy.init_node('task3_solution')
         self.client = actionlib.SimpleActionClient('move_base', MoveBaseAction)
         rospy.Subscriber("/odom", Odometry, self.odom_cb)
@@ -58,7 +58,7 @@ class Task3:
         print(self.distance((position_x, position_y), (goal_x, goal_y)))
         if self.distance((position_x, position_y), (goal_x, goal_y)) < 2.5:  # Close enough
             self.client.cancel_all_goals()
-            rospy.logerr("Taking manual control")
+            rospy.logwarn("Taking manual control")
 
     def distance(self, p1, p2):
         return np.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
