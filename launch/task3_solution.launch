@@ -43,6 +43,6 @@
     <remap from="points" to="/camera/depth/points"/>
   </node>
 
-  <node name="task3" pkg="parc-solution" type="task3_move_base.py" args="$(arg goal_x) $(arg goal_y) $(arg theta)" output="screen" />
+  <node name="task3_solution" pkg="parc-solution" type="task3_node.py" args="$(arg goal_x) $(arg goal_y) $(arg theta)" output="screen" />
 
 </launch>

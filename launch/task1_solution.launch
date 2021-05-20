@@ -4,5 +4,5 @@
   <arg name="goal_y" default="10.9" />
 
   <node name="lane_detector" pkg="parc-solution" type="lane_detector.py" />
-  <node name="obstacle_avoidance" pkg="parc-solution" type="obstacle_avoidance.py" args="$(arg goal_x) $(arg goal_y)" output="screen" />
+  <node name="task1_solution" pkg="parc-solution" type="task1_node.py" args="$(arg goal_x) $(arg goal_y)" output="screen" />
 </launch>

@@ -4,5 +4,5 @@
   <arg name="goal_x" default="-2.0" />
   <arg name="goal_y" default="10.9" />
 
-  <node name="solution" pkg="parc-solution" type="task2_node.py" args="$(arg goal_x) $(arg goal_y)" output="screen" />
+  <node name="task2_solution" pkg="parc-solution" type="task2_node.py" args="$(arg goal_x) $(arg goal_y)" output="screen" />
 </launch>
