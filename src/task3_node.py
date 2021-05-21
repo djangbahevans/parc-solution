@@ -55,7 +55,6 @@ class Task3:
     def feedback_cb(self, msg):
         position_x = msg.base_position.pose.position.x
         position_y = msg.base_position.pose.position.y
-        print(self.distance((position_x, position_y), (goal_x, goal_y)))
         if self.distance((position_x, position_y), (goal_x, goal_y)) < 2.5:  # Close enough
             self.client.cancel_all_goals()
             rospy.logwarn("Taking manual control")
@@ -106,7 +105,7 @@ class Task3:
     def stop(self):
         """Stops the robot
         """
-        print("Stopping the robot")
+        rospy.loginfo("Stopping the robot")
         cmd_vel = Twist()
         cmd_vel.linear.x = 0
         cmd_vel.angular.z = 0
